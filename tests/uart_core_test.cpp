@@ -372,6 +372,40 @@ void test_status_samples_clock_under_lock() {
         "long stalls saturate rather than wrapping back to fresh");
 }
 
+// 04C7 answers reads with the last write's ID, including writes made from the
+// Bluetooth remote. Ordered replies must keep the channel usable.
+void test_04c7_control_with_unknown_read_ids() {
+  Bench bench;
+  bench.tion.firmware = 0x04C7;
+  bench.tion.read_echo_last_set_id = true;
+  bench.run(4000);
+  for (unsigned pass = 0; pass < 100 && bench.status().state_reads_pending != 0; ++pass) {
+    bench.run(10);
+  }
+  CHECK(bench.status().state_reads_pending == 0,
+        "04C7 read replies drain without request ID 1");
+  CHECK(bench.submit(ControlCommand::speed_step(4)), "04C7 command is accepted");
+  bench.settle_until_idle();
+  bench.run(100);
+  CHECK(bench.tion.state.fan_speed == 4 && bench.status().control_applied == 1,
+        "04C7 control applies with ordered read replies");
+
+  // A write from the Bluetooth remote changes the ID of later read replies.
+  bench.tion.last_write_request_id = 99;
+  bench.run(4000);
+  for (unsigned pass = 0; pass < 100 && bench.status().state_reads_pending != 0; ++pass) {
+    bench.run(10);
+  }
+  CHECK(bench.status().state_reads_pending == 0,
+        "a foreign last write ID still drains read replies");
+  CHECK(bench.submit(ControlCommand::speed_step(5)),
+        "04C7 accepts a command after a foreign write");
+  bench.settle_until_idle();
+  bench.run(100);
+  CHECK(bench.tion.state.fan_speed == 5 && bench.status().control_applied == 2,
+        "a foreign write ID does not block 04C7 control");
+}
+
 void test_unsolicited_state_does_not_underflow_read_count() {
   Bench bench;
   bench.tion.firmware = 0x02D2;
@@ -562,6 +596,7 @@ int main() {
   test_device_info_is_retried();
   test_stall_guard_limits();
   test_status_samples_clock_under_lock();
+  test_04c7_control_with_unknown_read_ids();
   test_unsolicited_state_does_not_underflow_read_count();
   test_cancel_before_write_and_native_target_context();
   test_lost_state_reply_expires();

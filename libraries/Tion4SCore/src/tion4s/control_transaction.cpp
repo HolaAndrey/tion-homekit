@@ -87,7 +87,8 @@ bool ControlTransaction::submit(const ControlCommand& command, const Snapshot& s
     fail(ControlFailure::ContextChanged);
     return false;
   }
-  legacy_02d0_ = snapshot.device_info.firmware_version == kFirmware02D0;
+  unknown_read_ids_ =
+      firmware_has_unknown_read_ids(snapshot.device_info.firmware_version);
   queued_ms_ = queued_ms;
   baseline_ready_ = false;
   verify_reads_ = 0;
@@ -183,12 +184,12 @@ void ControlTransaction::observe(const Frame& frame, std::uint32_t now_ms) {
     return;
   }
   if (phase_ == ControlPhase::Reading && !baseline_ready_ &&
-      (legacy_02d0_ || state.request_id == 1)) {
+      (unknown_read_ids_ || state.request_id == 1)) {
     baseline_ = state;
     baseline_ms_ = now_ms;
     baseline_ready_ = true;
   } else if (phase_ == ControlPhase::Verifying &&
-             (legacy_02d0_ || state.request_id == 1 || state.request_id == request_id_)) {
+             (unknown_read_ids_ || state.request_id == 1 || state.request_id == request_id_)) {
     if (matches(state)) {
       phase_ = ControlPhase::Applied;
     } else if (verify_reads_ >= kMaxVerifyReads) {

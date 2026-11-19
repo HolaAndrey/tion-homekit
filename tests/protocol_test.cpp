@@ -763,6 +763,11 @@ void test_device_policy() {
             tion4s::firmware_allows_control(0x02D2, false) &&
             !tion4s::firmware_allows_control(0x03CD, true),
         "upstream minimum and blocked firmware");
+  CHECK(tion4s::firmware_has_unknown_read_ids(0x02D0) &&
+            tion4s::firmware_has_unknown_read_ids(0x04C7) &&
+            !tion4s::firmware_has_unknown_read_ids(0x02D2) &&
+            !tion4s::firmware_has_unknown_read_ids(0x02E0),
+        "02D0 and 04C7 read replies cannot be identified by request ID");
 }
 
 void test_control_transaction_02d0() {
@@ -1046,6 +1051,34 @@ void test_transaction_request_ids() {
         "an answer to the verification read confirms as well");
 }
 
+// 04C7 answers reads with the last write's ID (0 before the first write) and
+// echoes a write with its own ID. Ordered read accounting must accept those
+// replies without assuming request ID 1.
+void test_transaction_04c7_read_ids() {
+  FrameParser parser;
+  Frame frame;
+  CHECK(feed(parser, hex(kStateResponse), frame), "04C7 baseline frame");
+  auto snapshot = snapshot_02d0(captured_state());
+  snapshot.device_info.firmware_version = tion4s::kFirmware04C7;
+  tion4s::ControlTransaction transaction;
+  CHECK(transaction.submit(ControlCommand::speed_step(4), snapshot, false, 100),
+        "04C7 control needs no 02D0 opt-in");
+  transaction.sent(transaction.next(100).step, 100);
+  set_request_id(frame, 0);
+  transaction.observe(frame, 110);
+  auto output = transaction.next(110);
+  CHECK(output.step == ControlStep::Write && output.bytes[5] == 2,
+        "a read reply with ID 0 is the 04C7 baseline");
+  transaction.sent(output.step, 111);
+  output = transaction.next(291);
+  transaction.sent(output.step, 291);
+  frame.payload[8] = 4;
+  set_request_id(frame, 2);
+  transaction.observe(frame, 300);
+  CHECK(transaction.phase() == ControlPhase::Applied,
+        "a verify reply carrying the last write ID confirms 04C7");
+}
+
 void test_transaction_guards() {
   FrameParser parser;
   Frame frame;
@@ -1209,6 +1242,7 @@ int main() {
   test_control_admission();
   test_unchanged_and_timeouts();
   test_transaction_request_ids();
+  test_transaction_04c7_read_ids();
   test_transaction_guards();
   test_filter_reset_confirmation();
   std::cout << "protocol and control transactions: PASS\n";

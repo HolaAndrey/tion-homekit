@@ -55,8 +55,8 @@ struct ControlOutput {
 
 // One full-state write at a time. A preflight read supplies the complete
 // baseline. The write is sent at most once, then verified by a fresh read.
-// Firmware 02D0 has unknown response IDs: its explicit opt-in uses ordered
-// read responses, never an assumed request-ID match.
+// Firmware whose read replies carry no usable request ID (02D0 and 04C7) uses
+// ordered read responses, never an assumed request-ID match.
 //
 // Driving loop: call next(); transmit a non-None output, then report it with
 // sent(), or call transport_failed() if transmission failed; feed every
@@ -114,7 +114,7 @@ class ControlTransaction {
   std::uint32_t sent_ms_ = 0;
   std::uint32_t baseline_ms_ = 0;
   std::uint32_t request_id_ = 1;
-  bool legacy_02d0_ = false;
+  bool unknown_read_ids_ = false;
   bool baseline_ready_ = false;
   std::uint8_t verify_reads_ = 0;
 };

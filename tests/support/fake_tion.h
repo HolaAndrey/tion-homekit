@@ -122,8 +122,13 @@ class FakeTion final : public tion4s::UartPort {
   bool answer_device_info = true;
   // 02D0 answers reads with IDs unrelated to any request. Upstream firmware
   // (02D2 and later) answers reads with ID 1 and a write with its own ID.
+  // 04C7 answers reads with the last write's ID (0 before the first write),
+  // including writes made from another controller such as the Bluetooth
+  // remote, so the reply ID cannot identify a read.
   std::uint32_t response_request_id = 0;
   bool echo_request_ids = false;
+  bool read_echo_last_set_id = false;
+  std::uint32_t last_write_request_id = 0;
   std::uint32_t response_delay_ms = 20;
   bool fail_writes = false;
   bool respond = true;
@@ -154,7 +159,10 @@ class FakeTion final : public tion4s::UartPort {
       reply(frame(0x3931, {0}));
     } else if (type == 0x3232) {
       ++state_requests;
-      reply(state_frame(echo_request_ids ? 1 : response_request_id));
+      const auto request_id = read_echo_last_set_id
+                                  ? last_write_request_id
+                                  : (echo_request_ids ? 1u : response_request_id);
+      reply(state_frame(request_id));
     } else if (type == 0x3332) {
       ++device_info_requests;
       if (!answer_device_info) {
@@ -171,6 +179,11 @@ class FakeTion final : public tion4s::UartPort {
     } else if ((type == 0x3230 || type == 0x3234) && bytes.size() == 18) {
       ++writes;
       last_write = bytes;
+      std::uint32_t request_id = 0;
+      for (unsigned i = 0; i < 4; ++i) {
+        request_id |= std::uint32_t{bytes[5 + i]} << (8 * i);
+      }
+      last_write_request_id = request_id;
       if (apply_writes) {
         const auto flags = bytes[9];
         state.power_on = flags & 0x01;
@@ -185,11 +198,7 @@ class FakeTion final : public tion4s::UartPort {
         state.target_temperature = static_cast<std::int8_t>(bytes[12]);
         state.fan_speed = bytes[13];
       }
-      if (echo_request_ids) {
-        std::uint32_t request_id = 0;
-        for (unsigned i = 0; i < 4; ++i) {
-          request_id |= std::uint32_t{bytes[5 + i]} << (8 * i);
-        }
+      if (echo_request_ids || read_echo_last_set_id) {
         reply(state_frame(request_id));
       }
     }
