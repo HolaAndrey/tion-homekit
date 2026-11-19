@@ -215,10 +215,13 @@ void UartCore::dispatch(const Frame& frame, std::uint32_t now_ms) {
   State state;
   if (decode_state(frame, state) && state_reads_pending_ != 0) {
     const auto snapshot = session_.snapshot(now_ms);
-    // Before identification only read requests have been sent. On 02D0 the
-    // read IDs are unknown; on newer firmware do not count write ACKs.
+    // Before identification only read requests have been sent. 02D0 and 04C7
+    // answer reads with IDs that do not identify the request, so their replies
+    // are counted in order. Other firmware answers reads with ID 1 and a write
+    // with the write's own ID; do not count write ACKs there.
     if (!snapshot.has_device_info ||
-        snapshot.device_info.firmware_version == kFirmware02D0 || state.request_id == 1) {
+        firmware_has_unknown_read_ids(snapshot.device_info.firmware_version) ||
+        state.request_id == 1) {
       --state_reads_pending_;
     }
   }

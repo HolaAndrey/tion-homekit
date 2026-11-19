@@ -132,6 +132,10 @@ bool firmware_allows_control(std::uint16_t version, bool allow_legacy_02d0) {
   return version >= kFirmwareMinimumUpstream && version != kFirmwareBlocked03CD;
 }
 
+bool firmware_has_unknown_read_ids(std::uint16_t version) {
+  return version == kFirmware02D0 || version == kFirmware04C7;
+}
+
 std::uint8_t speed_to_percent(std::uint8_t speed, std::uint8_t maximum) {
   if (maximum == 0 || maximum > kMaxFanSteps || speed == 0 || speed > maximum) {
     return 0;

@@ -15,6 +15,10 @@ constexpr std::uint16_t kFirmware02D0 = 0x02D0;
 constexpr std::uint16_t kFirmwareMinimumUpstream = 0x02D2;
 // Upstream reports broken control on 03CD.
 constexpr std::uint16_t kFirmwareBlocked03CD = 0x03CD;
+// Upstream's 04C7 emulator models state reads as answering with the ID of the
+// last state write (0 before the first write), including writes made from the
+// Bluetooth remote. Its reply ID therefore does not identify a read.
+constexpr std::uint16_t kFirmware04C7 = 0x04C7;
 
 // Limits shared by the protocol and HomeKit layers.
 constexpr std::uint8_t kMaxFanSteps = 6;
@@ -31,6 +35,10 @@ bool is_4s_normal_mode(const DeviceInfo& info);
 
 // Firmware policy for any state write. The legacy flag is the explicit opt-in.
 bool firmware_allows_control(std::uint16_t version, bool allow_legacy_02d0);
+
+// True when replies to state reads do not carry request ID 1. Those versions
+// are handled with ordered read accounting instead of an ID match.
+bool firmware_has_unknown_read_ids(std::uint16_t version);
 
 // The device reports the maximum supported step. Zero means off in HomeKit,
 // but the Tion write packet always carries a nonzero stored fan step.
