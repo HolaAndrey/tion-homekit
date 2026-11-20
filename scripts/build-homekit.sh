@@ -14,7 +14,10 @@ if [[ "${TION_DIAGNOSTICS:-0}" != 0 && "${TION_DIAGNOSTICS:-0}" != 1 ]]; then
 fi
 if [[ "${TION_DIAGNOSTICS:-0}" == "1" ]]; then
   build_path="$repo_dir/.build/homekit-diagnostics"
-  extra_args=(--build-property 'compiler.cpp.extra_flags=-DTION_ENABLE_WEB_DIAGNOSTICS')
+  # The web log serves HTTP from the Arduino loop task, whose default stack is
+  # 8192 bytes. Enabling it overflowed that stack at boot on hardware, so the
+  # diagnostics build alone doubles it; the normal build keeps the default.
+  extra_args=(--build-property 'compiler.cpp.extra_flags=-DTION_ENABLE_WEB_DIAGNOSTICS -DARDUINO_LOOP_STACK_SIZE=16384')
 fi
 "$ARDUINO_CLI" --config-file "$ARDUINO_CLI_CONFIG" compile \
   --fqbn "$tion_fqbn" \
