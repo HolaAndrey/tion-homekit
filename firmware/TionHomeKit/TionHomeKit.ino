@@ -15,6 +15,17 @@
 #include "esp_mac.h"
 #include "esp_timer.h"
 
+// The Arduino builder inserts prototypes for the first functions it finds.
+// The diagnostics block below made it insert them inside setup(), so the
+// diagnostics build called setup() recursively until the stack ran out.
+// Declaring both keeps the builder from inserting anything. The guard keeps
+// the normal build's code and binary unchanged: there the inserted prototypes
+// used to land in the disabled diagnostics block and never compiled.
+#if defined(TION_ENABLE_WEB_DIAGNOSTICS)
+void setup();
+void loop();
+#endif
+
 namespace {
 
 #if defined(TION_ENABLE_WEB_DIAGNOSTICS)
