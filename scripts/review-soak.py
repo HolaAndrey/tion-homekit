@@ -45,6 +45,11 @@ def failure_count(row: dict[str, str]) -> int:
     return int(parts[1])
 
 
+def refusal_count(row: dict[str, str]) -> int:
+    """Refusals are reported, never counted as control failures."""
+    return optional_number(row, "control_refused") or 0
+
+
 def review(path: Path, expected_hours: float, interval_seconds: float,
            expected_version: str | None = None) -> dict:
     if not all(math.isfinite(value) and value > 0
@@ -73,6 +78,7 @@ def review(path: Path, expected_hours: float, interval_seconds: float,
     stalled_uart_samples = 0
     wifi_disconnects = 0
     control_failures = 0
+    control_refusals = 0
     counter_fields = ("uptime_seconds", "valid_states", "heartbeat_responses",
                       "wifi_disconnects", "rejected_frames", "uart_tx_failures")
     for row in reachable:
@@ -87,6 +93,7 @@ def review(path: Path, expected_hours: float, interval_seconds: float,
                      for field in counter_fields) or
                  current["reset_reason"] != previous["reset_reason"] or
                  failure_count(current) < failure_count(previous) or
+                 refusal_count(current) < refusal_count(previous) or
                  elapsed - uptime_delta > 15)
         resets += reset
         if not reset and elapsed >= 10 and (
@@ -97,6 +104,7 @@ def review(path: Path, expected_hours: float, interval_seconds: float,
                                 number(previous, "wifi_disconnects"))
         control_failures += max(0, failure_count(current) - failure_count(previous))
         control_failures += optional_delta(previous, current, "context_failed")
+        control_refusals += max(0, refusal_count(current) - refusal_count(previous))
 
     missed_intervals = sum(
         max(0, round((datetime.fromisoformat(current["timestamp_utc"]) -
@@ -185,6 +193,7 @@ def review(path: Path, expected_hours: float, interval_seconds: float,
         "uart_tx_failures": uart_tx_failures,
         "lost_state_replies": lost_state_replies,
         "control_failures": control_failures,
+        "control_refusals": control_refusals,
         "minimum_free_heap_bytes": min_free_heap_bytes,
         "minimum_uart_stack_free_bytes": min_uart_stack_free_bytes,
         "stall_limit_samples": stall_limit_samples,

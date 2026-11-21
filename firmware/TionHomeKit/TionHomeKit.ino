@@ -130,6 +130,10 @@ void append_uart_diagnostics(String& html) {
              static_cast<unsigned long>(status.control_failed));
   append_row(html, "Control unchanged", "%lu",
              static_cast<unsigned long>(status.control_unchanged));
+  // Refusals are the project's own decisions (safety rules, device errors),
+  // not failed transactions: nothing was written to the breezer.
+  append_row(html, "Control refused", "%lu",
+             static_cast<unsigned long>(status.control_refused));
   append_row(html, "Context-bound failures", "%lu",
              static_cast<unsigned long>(status.context_failed));
 

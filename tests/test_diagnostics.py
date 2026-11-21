@@ -120,6 +120,24 @@ class SoakReviewTests(unittest.TestCase):
         self.assertEqual(report["control_failures"], 1)
         self.assertEqual(report["status"], "FAIL")
 
+    def test_refusals_do_not_fail_the_run(self):
+        rows = samples()
+        for row in rows[1:]:
+            row["control_refused"] = "2"
+        report = self.review(rows)
+        self.assertEqual(report["control_refusals"], 2)
+        self.assertEqual(report["control_failures"], 0)
+        self.assertEqual(report["status"], "PASS")
+
+    def test_refusal_counter_reset_is_detected(self):
+        rows = samples()
+        for row in rows:
+            row["control_refused"] = "3"
+        rows[-1]["control_refused"] = "1"
+        report = self.review(rows)
+        self.assertEqual(report["resets"], 1)
+        self.assertEqual(report["status"], "FAIL")
+
     def test_bad_timestamps_and_missing_metrics(self):
         for field, value in (("timestamp_utc", samples()[0]["timestamp_utc"]),
                              ("minimum_free_heap_bytes", "")):
@@ -140,7 +158,7 @@ class SoakReviewTests(unittest.TestCase):
     def test_csv_from_older_monitor_without_new_columns(self):
         new_fields = {"uart_stack_free_bytes", "uart_stall_restarts", "control_unchanged",
                       "pending_state_replies", "control_available", "firmware_version",
-                      "lost_state_replies", "context_failed"}
+                      "lost_state_replies", "context_failed", "control_refused"}
         fields = [field for field in monitor.FIELDS if field not in new_fields]
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "legacy.csv"

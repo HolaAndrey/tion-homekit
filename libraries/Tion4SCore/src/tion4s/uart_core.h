@@ -87,6 +87,11 @@ struct UartStatus {
   // Failures of context-bound commands, except a changed context: that
   // command no longer applies, and the device and link are fine.
   std::uint32_t context_failed = 0;
+  // Commands refused before writing: an unsafe combination, reported device
+  // errors, an invalid baseline. Nothing reached the breezer, so they are
+  // counted apart from control_failed and from context_failed, which holds
+  // failed automatic commands; a refusal refuses no later command.
+  std::uint32_t control_refused = 0;
   // A command is running or waiting. It turns false only together with the
   // device state read after the command finished.
   bool control_pending = false;
@@ -208,6 +213,7 @@ class UartCore {
   std::uint32_t unchanged_ = 0;
   std::uint32_t failures_ = 0;
   std::uint32_t context_failures_ = 0;
+  std::uint32_t refused_ = 0;
   CommandResult recent_[UartStatus::kRecentResults]{};
 };
 
