@@ -98,7 +98,6 @@ LABELS = {
     "Tion firmware": "tion_firmware",
     "Tion hardware": "tion_hardware",
     "Raw request ID": "raw_request_id",
-    "Last state reply request ID": "raw_request_id",
     "Power": "power",
     "Fan speed / maximum": "fan_speed_maximum",
     "Sound enabled": "sound_enabled",

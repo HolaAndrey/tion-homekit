@@ -96,8 +96,6 @@ void append_uart_diagnostics(String& html) {
   append_row(html, "Maximum heartbeat TX gap (ms)", "%lu",
              static_cast<unsigned long>(device.max_heartbeat_gap_ms));
   append_row(html, "Valid states", "%lu", static_cast<unsigned long>(device.state_count));
-  append_row(html, "Last state reply request ID", "%lu",
-             static_cast<unsigned long>(device.state.request_id));
   append_row(html, "Pending state replies", "%lu",
              static_cast<unsigned long>(status.state_reads_pending));
   append_row(html, "Lost state replies", "%lu",
