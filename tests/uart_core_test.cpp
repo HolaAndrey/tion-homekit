@@ -230,14 +230,36 @@ void test_safe_direction_with_device_errors() {
   bench.settle_until_idle();
   CHECK(bench.status().control_failure == ControlFailure::Refused &&
             bench.status().control_refusal == WriteRejection::DeviceErrors &&
-            bench.tion.writes == 0,
-        "reported device errors block a speed change and say why");
+            bench.status().control_refused == 1 && bench.status().control_failed == 0 &&
+            bench.status().context_failed == 0 && bench.tion.writes == 0,
+        "reported device errors block a speed change and say why, without counting a failure");
   const auto failed = bench.status().control_failed;
   CHECK(bench.core.submit(ControlCommand::power(false), true, failed, bench.clock),
         "power-off accepted");
   bench.settle_until_idle();
   CHECK(!bench.tion.state.power_on && bench.status().control_failed == failed,
         "reported device errors do not block power-off");
+}
+
+// A refusal is the project's own decision before any write. It must not look
+// like a failure to the caller: the next command is accepted with the same
+// failure count, and a command waiting behind the refusal still runs.
+void test_refusal_keeps_the_waiting_command() {
+  Bench bench;
+  bench.tion.state.errors = 0x4;
+  bench.run(4000);
+  const auto refused = bench.submit(ControlCommand::speed_step(5));
+  CHECK(refused != 0, "the refused command is accepted");
+  bench.core.service(bench.tion);  // The pre-read is under way: the next one waits.
+  const auto waiting = bench.submit(ControlCommand::power(false));
+  CHECK(waiting != 0, "a person's command waits behind the refused one");
+  bench.settle_until_idle();
+  const auto status = bench.status();
+  CHECK(bench.outcome(refused) == CommandOutcome::Failed &&
+            status.control_refused == 1 && status.control_failed == 0 &&
+            status.context_failed == 0 && bench.outcome(waiting) == CommandOutcome::Applied &&
+            !bench.tion.state.power_on,
+        "a refusal is counted apart and does not drop the waiting command");
 }
 
 void test_idle_flush_recovers_frame_behind_stale_header() {
@@ -588,6 +610,7 @@ int main() {
   test_unchanged_is_not_failure();
   test_expired_before_write();
   test_safe_direction_with_device_errors();
+  test_refusal_keeps_the_waiting_command();
   test_idle_flush_recovers_frame_behind_stale_header();
   test_tx_failure_triggers_bounded_restart();
   test_submit_needs_one_group();

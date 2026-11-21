@@ -335,9 +335,15 @@ void UartCore::settle() {
   // Automation follows its own ticket. Its failure neither refuses stale
   // callers nor drops the person's command waiting behind it.
   const bool failed = result.outcome == CommandOutcome::Failed;
+  // A refusal never reached the breezer: it is the project's own safety or
+  // validity decision, not a failed transaction. Counting it apart keeps a
+  // deliberate refusal from refusing later commands or failing a soak run.
+  const bool refused = failed && result.failure == ControlFailure::Refused;
   const bool context_bound = control_.command().context.has_value();
-  const bool counted = failed && !context_bound;
-  if (counted) {
+  const bool counted = failed && !refused && !context_bound;
+  if (refused) {
+    ++refused_;
+  } else if (counted) {
     ++failures_;
   } else if (failed && result.failure != ControlFailure::ContextChanged) {
     ++context_failures_;
@@ -371,6 +377,7 @@ void UartCore::publish(std::uint32_t now_ms) {
   status_.control_unchanged = unchanged_;
   status_.control_failed = failures_;
   status_.context_failed = context_failures_;
+  status_.control_refused = refused_;
   status_.control_pending = running_ticket_ != 0 || has_waiting_;
   status_.running_ticket = running_ticket_;
   status_.waiting_ticket = has_waiting_ ? waiting_.ticket : 0;

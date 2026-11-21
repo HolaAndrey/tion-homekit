@@ -513,6 +513,7 @@ void heater_and_safety_rules() {
   const auto status = uart().status();
   CHECK(!tion().state.heater_allowed && tion().writes == 4 &&
             status.control_refusal == tion4s::WriteRejection::UnsafeCombination &&
+            status.control_refused == 1 && status.control_failed == 0 &&
             value(tiles.heater, "Active") == 0,
         "heat during recirculation is refused before UART, and reverts the tile");
 }
@@ -695,6 +696,7 @@ void diagnostics_page_reports_the_link() {
             has_row(page, "Control refusal", "none") &&
             has_row(page, "Last control kind / request ID", "recirculation / 2") &&
             has_row(page, "Control applied / failed", "1 / 0") &&
+            has_row(page, "Control refused", "0") &&
             has_row(page, "UART stall restarts", "2 / limit reached") &&
             has_row(page, "UART stack free (bytes)", "1234"),
         "the page shows device, state, control and adapter rows");
